@@ -150,7 +150,7 @@ function Update-IncrementalValues
  
 }
 
-function Delete-SqlTable 
+function Remove-SqlTable 
 {
     param (
         [Parameter(Mandatory = $true)]
@@ -187,7 +187,35 @@ function Delete-SqlTable
     Write-Verbose "Successfully dropped $SchemaName.$TableName in $DatabaseName on $SqlServerName"
 }
 
-$totalStartDateTime = (Get-Date).DateTime
+workflow Invoke-PSDWRefreshArchiveParallell
+{
+    Param($NumberofIterations)
+    "======================================================="
+    $array = 1..$NumberofIterations
+    $Uri = "http://www.bbc.com."
+    
+    function DoRequest($i,$Uri){
+        "$i starting";$response = Invoke-WebRequest -Uri $Uri;"$i ending"
+    }
+
+    "Serial"
+    "======"
+    $startTime = get-date
+    foreach ($i in $array) {DoRequest $i $Uri}
+    $serialElapsedTime = "elapsed time (serial foreach loop): " + ((get-date) - $startTime).TotalSeconds
+    #versus
+    "======================================================="
+    "Parallel"
+    "========"
+    $startTime = get-date
+    foreach -parallel ($i in $array) {DoRequest $i $Uri}
+    $parallelElapsedTime = "elapsed time (parallel foreach loop): " + ((get-date) - $startTime).TotalSeconds
+    $serialElapsedTime
+    $parallelElapsedTime
+    "======================================================="
+}
+
+#$totalStartDateTime = (Get-Date).DateTime
 
 
     foreach($db in $ServerSMO.Databases | where {$_.ExtendedProperties["Enabled"].Value -eq "True"}) #$_.Name -like "arkReporting_Lyse" -and 
@@ -256,7 +284,7 @@ $totalStartDateTime = (Get-Date).DateTime
 
                 #Write-Host " - merge to archive complete : " $(New-Timespan -Start $tableMergeStartDateTime -End $tableMergeEndDateTime)
 
-                Delete-SqlTable -SqlServerName $ServerName -DatabaseName $db.Name -SchemaName "stg" -TableName $tbl.Name
+                Remove-SqlTable -SqlServerName $ServerName -DatabaseName $db.Name -SchemaName "stg" -TableName $tbl.Name
                 #Write-Host " - temp table dropped" 
 
                 Write-Output $($db.Name + '.' + $tbl.Schema + '.' + $tbl.Name) "Load time : " $(New-Timespan -Start $tableLoadStartDateTime -End $tableLoadEndDateTime).ToString() "Merge time : " $(New-Timespan -Start $tableMergeStartDateTime -End $tableMergeEndDateTime).ToString()
@@ -280,7 +308,7 @@ $totalStartDateTime = (Get-Date).DateTime
     }
 
 
-$totalEndDateTime = (Get-Date).DateTime
+#$totalEndDateTime = (Get-Date).DateTime
 
 Write-Output " "
 Write-Output "Time elapsed :" $(New-Timespan -Start $totalStartDateTime -End $totalEndDateTime).ToString()
